@@ -5,7 +5,6 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.Graphics;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.BufferedReader;
@@ -18,7 +17,6 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -38,11 +36,9 @@ import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.Timer;
 import javax.swing.text.Style;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
-
 
 public class WordDefiner {
 
@@ -165,24 +161,10 @@ public class WordDefiner {
         appPanel.add(legendPanel, BorderLayout.SOUTH);
 
         // -------------------- FUNCTIONALITY --------------------
-       startButton.addActionListener(e -> {
-        scaleFactor = levelSlider.getValue();
-
-        // 🎉 Add confetti overlay
-        JPanel glassPane = new JPanel(null);
-        glassPane.setOpaque(false);
-        frame.setGlassPane(glassPane);
-
-        ConfettiPane confetti = new ConfettiPane(() -> {
+        startButton.addActionListener(e -> {
+            scaleFactor = levelSlider.getValue();
             cardLayout.show(mainPanel, "app");
         });
-
-        confetti.setBounds(0, 0, frame.getWidth(), frame.getHeight());
-        glassPane.add(confetti);
-        glassPane.setVisible(true);
-        confetti.startAnimation();
-    });
-
 
         processButton.addActionListener(e -> {
             loadingLabel.setVisible(true); // Show spinner
@@ -335,69 +317,4 @@ public class WordDefiner {
         Matcher matcher = Pattern.compile("\"definition\":\"(.*?)\"").matcher(json.toString());
         return matcher.find() ? matcher.group(1) : "Definition not found.";
     }
-
-    // 🎉 Confetti Panel
-static class ConfettiPane extends JPanel {
-    private final List<Confetti> confetti = new ArrayList<>();
-    private final Runnable onFinish;
-    private Timer timer;
-
-    public ConfettiPane(Runnable onFinish) {
-        this.onFinish = onFinish;
-        setOpaque(false);
-
-        // generate confetti
-        for (int i = 0; i < 100; i++) {
-            confetti.add(new Confetti());
-        }
-    }
-
-    public void startAnimation() {
-        timer = new Timer(30, e -> {
-            for (Confetti c : confetti) c.update();
-            repaint();
-        });
-        timer.start();
-
-        new Timer(2000, e -> {
-            timer.stop();
-            setVisible(false);
-            if (onFinish != null) onFinish.run();
-        }).start();
-    }
-
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        for (Confetti c : confetti) c.draw(g);
-    }
-
-    static class Confetti {
-        int x, y, size, dx, dy;
-        Color color;
-
-        Confetti() {
-            x = (int) (Math.random() * 900);
-            y = (int) (Math.random() * 100 - 100);
-            size = (int) (Math.random() * 12 + 6);
-            dx = (int) (Math.random() * 4 - 2);
-            dy = (int) (Math.random() * 3 + 1);
-            color = new Color(
-                    (int) (Math.random() * 255),
-                    (int) (Math.random() * 255),
-                    (int) (Math.random() * 255)
-            );
-        }
-
-        void update() {
-            x += dx;
-            y += dy;
-        }
-
-        void draw(Graphics g) {
-            g.setColor(color);
-            g.fillOval(x, y, size, size);
-        }
-    }
-}
-
 }
