@@ -35,6 +35,7 @@ import javax.swing.JSlider;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.text.Style;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
@@ -60,13 +61,17 @@ public class WordDefiner {
         introPanel.setBackground(new Color(230, 240, 255));
 
         JLabel title = new JLabel("Welcome to Clarity");
-        title.setFont(new Font("Comic Sans MS", Font.BOLD, 32));
+        title.setFont(new Font("Comic Sans MS", Font.BOLD, 50));
         title.setForeground(new Color(0, 102, 204));
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel description = new JLabel("<html><div style='text-align: center;'>Clarity helps you find tricky words in your writing!<br>Pick your reading level below, then click Start.</div></html>");
-        description.setFont(new Font("Comic Sans MS", Font.PLAIN, 18));
-        description.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JLabel description1 = new JLabel("Clarity helps you find tricky words in your writing!");
+        description1.setFont(new Font("Comic Sans MS", Font.PLAIN, 18));
+        description1.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JLabel description2 = new JLabel("Pick your reading level below, then click Start.");
+        description2.setFont(new Font("Comic Sans MS", Font.PLAIN, 18));
+        description2.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JSlider levelSlider = new JSlider(JSlider.HORIZONTAL, 1, 5, 3);
         levelSlider.setMajorTickSpacing(1);
@@ -86,7 +91,9 @@ public class WordDefiner {
 
         introPanel.add(title);
         introPanel.add(Box.createRigidArea(new Dimension(0, 20)));
-        introPanel.add(description);
+        introPanel.add(description1);
+        introPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+        introPanel.add(description2);
         introPanel.add(Box.createRigidArea(new Dimension(0, 30)));
         introPanel.add(sliderLabel);
         introPanel.add(levelSlider);
@@ -108,6 +115,12 @@ public class WordDefiner {
         outputPane.setBorder(BorderFactory.createLineBorder(new Color(180, 180, 180), 2));
         outputPane.setBackground(new Color(255, 255, 240));
 
+        JLabel loadingLabel = new JLabel("🔄 Analyzing...");
+        loadingLabel.setFont(new Font("Comic Sans MS", Font.BOLD, 24));
+        loadingLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        loadingLabel.setForeground(new Color(0, 102, 204));
+        loadingLabel.setVisible(false);
+
         StyledDocument doc = outputPane.getStyledDocument();
         Style easyStyle = outputPane.addStyle("easy", null);
         StyleConstants.setForeground(easyStyle, Color.BLACK);
@@ -118,14 +131,14 @@ public class WordDefiner {
         StyleConstants.setForeground(hardStyle, new Color(0, 102, 255));
         StyleConstants.setUnderline(hardStyle, true);
 
-        JLabel instructions = new JLabel("📝 Type a sentence below and click 'Analyze' to find tricky words!");
+        JLabel instructions = new JLabel("Enter a text below and click 'Analyze' to find tricky words!");
         instructions.setFont(new Font("Comic Sans MS", Font.BOLD, 16));
         instructions.setHorizontalAlignment(SwingConstants.CENTER);
         instructions.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         JPanel topPanel = new JPanel();
         topPanel.setBackground(new Color(245, 250, 255));
-        topPanel.add(new JLabel("Sentence:"));
+        topPanel.add(new JLabel("Enter Text:"));
         topPanel.add(inputField);
         topPanel.add(processButton);
         topPanel.add(loadFileButton);
@@ -133,15 +146,15 @@ public class WordDefiner {
         JPanel legendPanel = new JPanel();
         legendPanel.setBackground(Color.WHITE);
         legendPanel.setLayout(new FlowLayout());
-        legendPanel.add(new JLabel("Legend: "));
+        legendPanel.add(new JLabel("Word Difficulty: "));
         legendPanel.add(createColorLabel("Easy", Color.BLACK));
         legendPanel.add(createColorLabel("Medium", new Color(255, 140, 0)));
         legendPanel.add(createColorLabel("Hard", new Color(0, 102, 255)));
 
-        // 🧱 Center panel that holds input & output
         JPanel centerPanel = new JPanel(new BorderLayout());
         centerPanel.add(topPanel, BorderLayout.NORTH);
         centerPanel.add(new JScrollPane(outputPane), BorderLayout.CENTER);
+        centerPanel.add(loadingLabel, BorderLayout.SOUTH); // add spinner
 
         appPanel.add(instructions, BorderLayout.NORTH);
         appPanel.add(centerPanel, BorderLayout.CENTER);
@@ -154,57 +167,55 @@ public class WordDefiner {
         });
 
         processButton.addActionListener(e -> {
-            try {
-                doc.remove(0, doc.getLength());
-                wordPositions.clear();
-                String sentence = inputField.getText();
-                java.util.List<String> words = new ArrayList<>();
+            loadingLabel.setVisible(true); // Show spinner
+            SwingUtilities.invokeLater(() -> {
+                try {
+                    doc.remove(0, doc.getLength());
+                    wordPositions.clear();
+                    String sentence = inputField.getText();
+                    java.util.List<String> words = new ArrayList<>();
 
-                for (String token : sentence.split(" ")) {
-                    if (token.contains("--")) {
-                        String[] parts = token.split("--");
-                        for (String part : parts) {
-                            if (!part.isEmpty()) words.add(part);
+                    for (String token : sentence.split(" ")) {
+                        if (token.contains("--")) {
+                            String[] parts = token.split("--");
+                            for (String part : parts) {
+                                if (!part.isEmpty()) words.add(part);
+                            }
+                        } else {
+                            words.add(token);
                         }
-                    } else {
-                        words.add(token);
                     }
+
+                    for (int i = 0; i < words.size(); i++) {
+                        String word = words.get(i);
+                        String clean = word.replaceAll("[^a-zA-Z\\-]", "").toLowerCase();
+                        if (clean.isEmpty()) continue;
+
+                        String difficulty = getWordDifficulty(clean);
+                        Style style = switch (difficulty) {
+                            case "hard" -> hardStyle;
+                            case "medium" -> mediumStyle;
+                            default -> easyStyle;
+                        };
+
+                        int start = doc.getLength();
+                        doc.insertString(doc.getLength(), word, style);
+
+                        if (!difficulty.equals("easy")) {
+                            wordPositions.put(start, clean);
+                        }
+
+                        if (i < words.size() - 1) {
+                            doc.insertString(doc.getLength(), " ", easyStyle);
+                        }
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(frame, "Error: " + ex.getMessage());
+                } finally {
+                    loadingLabel.setVisible(false); // Hide spinner
                 }
-
-                for (int i = 0; i < words.size(); i++) {
-                    String word = words.get(i);
-                    String clean = word.replaceAll("[^a-zA-Z\\-]", "").toLowerCase();
-                    if (clean.isEmpty()) continue;
-
-                 String definition = fetchDefinition(clean);
-if (definition.equals("Definition not found.")) {
-    // Just skip highlighting and treat it like easy
-    doc.insertString(doc.getLength(), word + " ", easyStyle);
-    continue;
-}
-
-String difficulty = getWordDifficulty(clean);
-Style style = switch (difficulty) {
-    case "hard" -> hardStyle;
-    case "medium" -> mediumStyle;
-    default -> easyStyle;
-};
-
-                    int start = doc.getLength();
-                    doc.insertString(doc.getLength(), word, style);
-
-                    if (!difficulty.equals("easy")) {
-                        wordPositions.put(start, clean);
-                    }
-
-                    if (i < words.size() - 1) {
-                        doc.insertString(doc.getLength(), " ", easyStyle);
-                    }
-                }
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                JOptionPane.showMessageDialog(frame, "Error: " + ex.getMessage());
-            }
+            });
         });
 
         loadFileButton.addActionListener(event -> {
@@ -285,6 +296,7 @@ Style style = switch (difficulty) {
             if (scaleFactor == 4) return scaledFreq > 8 ? "easy" : scaledFreq >= 4.5 ? "medium" : "hard";
             else return scaledFreq > 6 ? "easy" : scaledFreq >= 3 ? "medium" : "hard";
         }
+
         return "easy";
     }
 
