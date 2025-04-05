@@ -138,10 +138,14 @@ public class WordDefiner {
         legendPanel.add(createColorLabel("Medium", new Color(255, 140, 0)));
         legendPanel.add(createColorLabel("Hard", new Color(0, 102, 255)));
 
+        // 🧱 Center panel that holds input & output
+        JPanel centerPanel = new JPanel(new BorderLayout());
+        centerPanel.add(topPanel, BorderLayout.NORTH);
+        centerPanel.add(new JScrollPane(outputPane), BorderLayout.CENTER);
+
         appPanel.add(instructions, BorderLayout.NORTH);
-        appPanel.add(topPanel, BorderLayout.CENTER);
-        appPanel.add(new JScrollPane(outputPane), BorderLayout.SOUTH);
-        appPanel.add(legendPanel, BorderLayout.PAGE_END);
+        appPanel.add(centerPanel, BorderLayout.CENTER);
+        appPanel.add(legendPanel, BorderLayout.SOUTH);
 
         // -------------------- FUNCTIONALITY --------------------
         startButton.addActionListener(e -> {
@@ -172,12 +176,19 @@ public class WordDefiner {
                     String clean = word.replaceAll("[^a-zA-Z\\-]", "").toLowerCase();
                     if (clean.isEmpty()) continue;
 
-                    String difficulty = getWordDifficulty(clean);
-                    Style style = switch (difficulty) {
-                        case "hard" -> hardStyle;
-                        case "medium" -> mediumStyle;
-                        default -> easyStyle;
-                    };
+                 String definition = fetchDefinition(clean);
+if (definition.equals("Definition not found.")) {
+    // Just skip highlighting and treat it like easy
+    doc.insertString(doc.getLength(), word + " ", easyStyle);
+    continue;
+}
+
+String difficulty = getWordDifficulty(clean);
+Style style = switch (difficulty) {
+    case "hard" -> hardStyle;
+    case "medium" -> mediumStyle;
+    default -> easyStyle;
+};
 
                     int start = doc.getLength();
                     doc.insertString(doc.getLength(), word, style);
